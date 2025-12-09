@@ -14,6 +14,8 @@ import {
 import Link from "next/link";
 import { Input } from "../ui/input";
 import Image from "next/image";
+import { LoaderCircleIcon } from "lucide-react";
+import { Button } from "../ui/button";
 
 const formSchema = z.object({
   email: z
@@ -38,6 +40,7 @@ interface ForgotPasswordFormProps {
   testimonials?: Testimonial[];
   onForgotPassword: (data: z.infer<typeof formSchema>) => void;
   onGoogleForgotPassword?: () => void;
+  loading?: boolean;
 }
 
 // --- SUB-COMPONENTS ---
@@ -83,6 +86,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
   heroImageSrc,
   testimonials = [],
   onForgotPassword,
+  loading = false,
 }) => {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -131,12 +135,20 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
                   )}
                 />
 
-                <button
-                  type="submit"
-                  className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  Envoyer le lien de réinitialisation
-                </button>
+                <Button type="submit" className="w-full">
+                  {loading ? (
+                    <>
+                      Envoi en cours
+                      <LoaderCircleIcon
+                        aria-hidden="true"
+                        className="animate-spin"
+                        size={16}
+                      />
+                    </>
+                  ) : (
+                    "Envoyer le lien de réinitialisation"
+                  )}
+                </Button>
               </form>
             </Form>
 

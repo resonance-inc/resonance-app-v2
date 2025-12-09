@@ -4,6 +4,9 @@ import {
   ResetPasswordForm,
   Testimonial,
 } from "@/src/components/auth/reset-password-form";
+import { resetPassword } from "@/src/lib/auth-client";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 
 const sampleTestimonials: Testimonial[] = [
   {
@@ -27,11 +30,39 @@ const sampleTestimonials: Testimonial[] = [
 ];
 
 export default function ResetPasswordPage() {
-  const handleResetPassword = (data: {
+  const [loading, setLoading] = useState(false);
+
+  const router = useRouter();
+
+  const searchParams = useSearchParams();
+  const token = searchParams?.get("token");
+
+  const handleResetPassword = async (data: {
     password: string;
     confirmPassword: string;
   }) => {
-    console.log("Reset Password submitted:", data);
+    setLoading(true);
+
+    await resetPassword(
+      {
+        newPassword: data.password,
+        token: token || "",
+      },
+      {
+        onSuccess: () => {
+          router.push("reset-password/success");
+          router.refresh();
+        },
+        onError: (error) => {
+          console.error("Error:", error);
+
+          if (error.error.code === "INVALID_TOKEN") {
+            router.push("reset-password/error");
+            router.refresh();
+          }
+        },
+      }
+    );
   };
 
   return (
@@ -42,6 +73,7 @@ export default function ResetPasswordPage() {
         description="Entrez votre nouveau mot de passe ci-dessous pour accéder à votre compte. Assurez-vous de choisir un mot de passe sécurisé."
         testimonials={sampleTestimonials}
         onResetPassword={handleResetPassword}
+        loading={loading}
       />
     </div>
   );

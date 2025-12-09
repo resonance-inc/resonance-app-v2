@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, LoaderCircleIcon } from "lucide-react";
 import z from "zod";
-import { useForm } from "react-hook-form";
+import { Controller, FieldPath, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
@@ -27,6 +27,15 @@ import {
   SelectValue,
 } from "../ui/select";
 import Image from "next/image";
+import { Field, FieldError, FieldLabel } from "../ui/field";
+import {
+  Stepper,
+  StepperIndicator,
+  StepperItem,
+  StepperSeparator,
+  StepperTitle,
+  StepperTrigger,
+} from "../ui/stepper";
 
 const formSchema = z
   .object({
@@ -55,6 +64,8 @@ const formSchema = z
     path: ["confirmPassword"],
   });
 
+type SignUpFormValues = z.infer<typeof formSchema>;
+
 // --- TYPE DEFINITIONS ---
 
 export interface Testimonial {
@@ -69,8 +80,9 @@ interface SignUpFormProps {
   description?: React.ReactNode;
   heroImageSrc?: string;
   testimonials?: Testimonial[];
-  onSignUp: (data: z.infer<typeof formSchema>) => void;
+  onSignUp: (data: SignUpFormValues) => void;
   onGoogleSignUp?: () => void;
+  loading?: boolean;
 }
 
 // --- SUB-COMPONENTS ---
@@ -116,27 +128,76 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
   heroImageSrc,
   testimonials = [],
   onSignUp,
+  loading = false,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [country, setCountry] = useState<string | undefined>("FRA");
+  const [currentStep, setCurrentStep] = useState(1);
+  const steps = [
+    { step: 1, title: "Identité" },
+    { step: 2, title: "Informations" },
+  ];
+  const totalSteps = steps.length;
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const stepFieldMap: Record<number, Array<FieldPath<SignUpFormValues>>> = {
+    1: ["name", "email", "phoneNumber", "password", "confirmPassword"],
+    2: ["country", "city", "artistType"],
+  };
+
+  const form = useForm<SignUpFormValues>({
     resolver: zodResolver(formSchema),
+    mode: "onTouched",
+    reValidateMode: "onChange",
     defaultValues: {
       name: "",
       email: "",
       password: "",
       confirmPassword: "",
       phoneNumber: "",
-      country: "",
+      country: country ?? "",
       city: "",
       artistType: "",
     },
   });
+  const { submitCount } = form.formState;
 
-  const handleCountryChange = (selectedCountry: Country) => {
+  const handleCountryChange = (
+    selectedCountry: Country,
+    fieldOnChange: (value: string) => void
+  ) => {
     setCountry(selectedCountry.alpha3);
+    fieldOnChange(selectedCountry.alpha3);
   };
+
+  const handleNextStep = async () => {
+    const fields = stepFieldMap[currentStep];
+    if (!fields) {
+      return;
+    }
+    const isValid = await form.trigger(fields);
+    if (isValid) {
+      setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
+      // Réinitialiser les erreurs des champs de l'étape suivante pour éviter l'affichage prématuré
+      const nextStepFields = stepFieldMap[currentStep + 1];
+      if (nextStepFields) {
+        nextStepFields.forEach((field) => {
+          form.clearErrors(field);
+        });
+      }
+    }
+  };
+
+  const handlePreviousStep = () => {
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
+  };
+
+  const handleStepperChange = (step: number) => {
+    if (step <= currentStep) {
+      setCurrentStep(step);
+    }
+  };
+
+  const isLastStep = currentStep === totalSteps;
 
   return (
     <div className="flex flex-col md:flex-row font-geist w-dvw">
@@ -151,246 +212,318 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
               {description}
             </p>
 
+            <Stepper value={currentStep} onValueChange={handleStepperChange}>
+              {steps.map(({ step, title }) => (
+                <StepperItem
+                  key={step}
+                  step={step}
+                  className="not-last:flex-1 max-md:items-start"
+                  disabled={step > currentStep}
+                >
+                  <StepperTrigger className="rounded max-md:flex-col">
+                    <StepperIndicator />
+                    <div className="hidden md:block text-center md:text-left">
+                      <StepperTitle>{title}</StepperTitle>
+                    </div>
+                  </StepperTrigger>
+                  {step < steps.length && (
+                    <StepperSeparator className="max-md:mt-3.5 md:mx-4" />
+                  )}
+                </StepperItem>
+              ))}
+            </Stepper>
+
             <Form {...form}>
               <form
                 className="space-y-5"
                 onSubmit={form.handleSubmit(onSignUp)}
               >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {/* Nom complet */}
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-muted-foreground">
-                          Votre nom complet
-                        </FormLabel>
-                        <FormControl>
+                {currentStep === 1 && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-muted-foreground">
+                            Votre nom complet
+                          </FormLabel>
+                          <FormControl>
+                            <GlassInputWrapper>
+                              <Input
+                                placeholder="Entrer votre nom complet"
+                                {...field}
+                                className="w-full bg-transparent text-sm p-4 rounded-2xl focus:outline-none"
+                              />
+                            </GlassInputWrapper>
+                          </FormControl>
+                          {(fieldState.isTouched || submitCount > 0) && (
+                            <FormMessage />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-muted-foreground">
+                            Votre adresse e-mail
+                          </FormLabel>
+                          <FormControl>
+                            <GlassInputWrapper>
+                              <Input
+                                placeholder="Entrer votre adresse e-mail"
+                                {...field}
+                                className="w-full bg-transparent text-sm p-4 rounded-2xl focus:outline-none"
+                              />
+                            </GlassInputWrapper>
+                          </FormControl>
+                          {(fieldState.isTouched || submitCount > 0) && (
+                            <FormMessage />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="phoneNumber"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-muted-foreground">
+                            Votre numéro de téléphone
+                          </FormLabel>
+                          <FormControl>
+                            <GlassInputWrapper>
+                              <PhoneNumberInput
+                                value={field.value}
+                                onChange={field.onChange}
+                              />
+                            </GlassInputWrapper>
+                          </FormControl>
+                          {(fieldState.isTouched || submitCount > 0) && (
+                            <FormMessage />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-muted-foreground">
+                            Votre mot de passe
+                          </FormLabel>
+                          <FormControl>
+                            <GlassInputWrapper>
+                              <Input
+                                type={showPassword ? "text" : "password"}
+                                placeholder="Entrer votre mot de passe"
+                                {...field}
+                                className="w-full bg-transparent text-sm p-4 pr-12 rounded-2xl focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute inset-y-0 right-3 flex items-center"
+                              >
+                                {showPassword ? (
+                                  <EyeOff className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
+                                ) : (
+                                  <Eye className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
+                                )}
+                              </button>
+                            </GlassInputWrapper>
+                          </FormControl>
+                          {(fieldState.isTouched || submitCount > 0) && (
+                            <FormMessage />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="confirmPassword"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-muted-foreground">
+                            Confirmez votre mot de passe
+                          </FormLabel>
+                          <FormControl>
+                            <GlassInputWrapper>
+                              <Input
+                                type={showPassword ? "text" : "password"}
+                                placeholder="Entrer votre mot de passe"
+                                {...field}
+                                className="w-full bg-transparent text-sm p-4 pr-12 rounded-2xl focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute inset-y-0 right-3 flex items-center"
+                              >
+                                {showPassword ? (
+                                  <EyeOff className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
+                                ) : (
+                                  <Eye className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
+                                )}
+                              </button>
+                            </GlassInputWrapper>
+                          </FormControl>
+                          {(fieldState.isTouched || submitCount > 0) && (
+                            <FormMessage />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
+
+                {currentStep === 2 && (
+                  <>
+                    <Controller
+                      name="country"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldLabel htmlFor="form-signin-country">
+                            Votre pays
+                          </FieldLabel>
                           <GlassInputWrapper>
-                            <Input
-                              placeholder="Entrer votre nom complet"
-                              {...field}
-                              className="w-full bg-transparent text-sm p-4 rounded-2xl focus:outline-none"
+                            <CountryDropdown
+                              placeholder="Sélectionner votre pays"
+                              defaultValue={country}
+                              onChange={(selectedCountry) =>
+                                handleCountryChange(
+                                  selectedCountry,
+                                  field.onChange
+                                )
+                              }
                             />
                           </GlassInputWrapper>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          {(fieldState.isTouched || submitCount > 0) &&
+                            fieldState.invalid && (
+                              <FieldError errors={[fieldState.error]} />
+                            )}
+                        </Field>
+                      )}
+                    />
 
-                  {/* Adresse e-mail */}
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-muted-foreground">
-                          Votre adresse e-mail
-                        </FormLabel>
-                        <FormControl>
-                          <GlassInputWrapper>
-                            <Input
-                              placeholder="Entrer votre adresse e-mail"
-                              {...field}
-                              className="w-full bg-transparent text-sm p-4 rounded-2xl focus:outline-none"
-                            />
-                          </GlassInputWrapper>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                    <FormField
+                      control={form.control}
+                      name="city"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-muted-foreground">
+                            Votre ville de résidence
+                          </FormLabel>
+                          <FormControl>
+                            <GlassInputWrapper>
+                              <Input
+                                placeholder="Entrer votre ville"
+                                {...field}
+                                className="w-full bg-transparent text-sm p-4 rounded-2xl focus:outline-none"
+                              />
+                            </GlassInputWrapper>
+                          </FormControl>
+                          {(fieldState.isTouched || submitCount > 0) && (
+                            <FormMessage />
+                          )}
+                        </FormItem>
+                      )}
+                    />
 
-                {/* Numéro de téléphone */}
-                <FormField
-                  control={form.control}
-                  name="phoneNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium text-muted-foreground">
-                        Votre numéro de téléphone
-                      </FormLabel>
-                      <FormControl>
-                        <GlassInputWrapper>
-                          <PhoneNumberInput
-                            value={field.value}
-                            onChange={field.onChange}
-                          />
-                        </GlassInputWrapper>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Pays */}
-                <FormField
-                  control={form.control}
-                  name="country"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium text-muted-foreground">
-                        Votre pays de résidence
-                      </FormLabel>
-                      <FormControl>
-                        <GlassInputWrapper>
-                          <CountryDropdown
-                            {...field}
-                            placeholder="Sélectionner votre pays"
-                            defaultValue={country}
-                            onChange={handleCountryChange}
-                          />
-                        </GlassInputWrapper>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Ville */}
-                <FormField
-                  control={form.control}
-                  name="city"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium text-muted-foreground">
-                        Votre ville de résidence
-                      </FormLabel>
-                      <FormControl>
-                        <GlassInputWrapper>
-                          <Input
-                            placeholder="Entrer votre ville"
-                            {...field}
-                            className="w-full bg-transparent text-sm p-4 rounded-2xl focus:outline-none"
-                          />
-                        </GlassInputWrapper>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Type d'artiste */}
-                <FormField
-                  control={form.control}
-                  name="artistType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium text-muted-foreground">
-                        Quels type d'artiste êtes-vous ?
-                      </FormLabel>
-                      <FormControl>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <SelectTrigger className="w-full rounded-xl">
-                            <SelectValue placeholder="Sélectionner votre type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              <SelectLabel>Types d'artiste</SelectLabel>
-                              <SelectItem value="LYRICIST">Parolier</SelectItem>
-                              <SelectItem value="SINGER">Chanteur</SelectItem>
-                              <SelectItem value="COMPOSER">
-                                Compositeur
-                              </SelectItem>
-                              <SelectItem value="BEATMAKER">
-                                Beatmaker
-                              </SelectItem>
-                              <SelectItem value="PRODUCER">
-                                Producteur
-                              </SelectItem>
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {/* Mot de passe */}
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-muted-foreground">
-                          Votre mot de passe
-                        </FormLabel>
-                        <FormControl>
-                          <GlassInputWrapper>
-                            <Input
-                              type={showPassword ? "text" : "password"}
-                              placeholder="Entrer votre mot de passe"
-                              {...field}
-                              className="w-full bg-transparent text-sm p-4 pr-12 rounded-2xl focus:outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute inset-y-0 right-3 flex items-center"
+                    <FormField
+                      control={form.control}
+                      name="artistType"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-muted-foreground">
+                            Quels type d'artiste êtes-vous ?
+                          </FormLabel>
+                          <FormControl>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
                             >
-                              {showPassword ? (
-                                <EyeOff className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
-                              ) : (
-                                <Eye className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
-                              )}
-                            </button>
-                          </GlassInputWrapper>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                              <SelectTrigger className="w-full rounded-xl">
+                                <SelectValue placeholder="Sélectionner votre type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  <SelectLabel>Types d'artiste</SelectLabel>
+                                  <SelectItem value="LYRICIST">
+                                    Parolier
+                                  </SelectItem>
+                                  <SelectItem value="SINGER">
+                                    Chanteur
+                                  </SelectItem>
+                                  <SelectItem value="COMPOSER">
+                                    Compositeur
+                                  </SelectItem>
+                                  <SelectItem value="BEATMAKER">
+                                    Beatmaker
+                                  </SelectItem>
+                                  <SelectItem value="PRODUCER">
+                                    Producteur
+                                  </SelectItem>
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          {(fieldState.isTouched || submitCount > 0) && (
+                            <FormMessage />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
 
-                  {/* Confirmation du mot de passe */}
-                  <FormField
-                    control={form.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-muted-foreground">
-                          Confirmez votre mot de passe
-                        </FormLabel>
-                        <FormControl>
-                          <GlassInputWrapper>
-                            <Input
-                              type={showPassword ? "text" : "password"}
-                              placeholder="Entrer votre mot de passe"
-                              {...field}
-                              className="w-full bg-transparent text-sm p-4 pr-12 rounded-2xl focus:outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute inset-y-0 right-3 flex items-center"
-                            >
-                              {showPassword ? (
-                                <EyeOff className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
-                              ) : (
-                                <Eye className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
-                              )}
-                            </button>
-                          </GlassInputWrapper>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <div className="flex flex-col gap-3 md:flex-row md:justify-between">
+                  {currentStep > 1 && (
+                    <button
+                      type="button"
+                      onClick={handlePreviousStep}
+                      className="w-full rounded-2xl border border-border py-4 font-medium text-foreground hover:bg-foreground/5 transition-colors"
+                    >
+                      Étape précédente
+                    </button>
+                  )}
+                  {isLastStep ? (
+                    <button
+                      type="submit"
+                      className="w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                    >
+                      {loading ? (
+                        <div className="flex items-center gap-4 justify-center">
+                          Inscription en cours
+                          <LoaderCircleIcon
+                            aria-hidden="true"
+                            className="animate-spin"
+                            size={16}
+                          />
+                        </div>
+                      ) : (
+                        "S'inscrire"
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleNextStep}
+                      className="w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                    >
+                      Continuer
+                    </button>
+                  )}
                 </div>
-
-                <button
-                  type="submit"
-                  className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  S'inscrire
-                </button>
               </form>
             </Form>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, LoaderCircleIcon } from "lucide-react";
 import z from "zod";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { Input } from "../ui/input";
 import Image from "next/image";
+import { Button } from "../ui/button";
 
 const formSchema = z.object({
   email: z
@@ -69,6 +70,7 @@ interface SignInFormProps {
   testimonials?: Testimonial[];
   onSignIn: (data: z.infer<typeof formSchema>) => void;
   onGoogleSignIn?: () => void;
+  loading?: boolean;
 }
 
 // --- SUB-COMPONENTS ---
@@ -115,6 +117,7 @@ export const SignInForm: React.FC<SignInFormProps> = ({
   testimonials = [],
   onSignIn,
   onGoogleSignIn,
+  loading = false,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -228,12 +231,23 @@ export const SignInForm: React.FC<SignInFormProps> = ({
                   </Link>
                 </div>
 
-                <button
+                <Button
                   type="submit"
                   className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
-                  Se connecter
-                </button>
+                  {loading ? (
+                    <>
+                      Inscription en cours
+                      <LoaderCircleIcon
+                        aria-hidden="true"
+                        className="animate-spin"
+                        size={16}
+                      />
+                    </>
+                  ) : (
+                    "S'inscrire"
+                  )}
+                </Button>
               </form>
             </Form>
 

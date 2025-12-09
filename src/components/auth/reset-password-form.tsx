@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, LoaderCircleIcon } from "lucide-react";
 import z from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { Input } from "../ui/input";
 import Image from "next/image";
+import { Button } from "../ui/button";
 
 const formSchema = z
   .object({
@@ -55,6 +56,7 @@ interface ResetPasswordFormProps {
   testimonials?: Testimonial[];
   onResetPassword: (data: z.infer<typeof formSchema>) => void;
   onGoogleResetPassword?: () => void;
+  loading?: boolean;
 }
 
 // --- SUB-COMPONENTS ---
@@ -100,6 +102,7 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
   heroImageSrc,
   testimonials = [],
   onResetPassword,
+  loading = false,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -197,12 +200,23 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
                   )}
                 />
 
-                <button
+                <Button
                   type="submit"
                   className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
-                  S'inscrire
-                </button>
+                  {loading ? (
+                    <>
+                      Réinitialisation en cours
+                      <LoaderCircleIcon
+                        aria-hidden="true"
+                        className="animate-spin"
+                        size={16}
+                      />
+                    </>
+                  ) : (
+                    "Réinitialiser le mot de passe"
+                  )}
+                </Button>
               </form>
             </Form>
 

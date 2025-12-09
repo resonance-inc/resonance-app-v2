@@ -23,7 +23,7 @@ export default function PhoneNumberInput({
   return (
     <div className="*:not-first:mt-2 " dir="ltr">
       <RPNInput.default
-        className="flex rounded-md shadow-xs"
+        className="flex rounded-2xl shadow-xs border"
         countrySelectComponent={CountrySelect}
         flagComponent={FlagComponent}
         id={id}
@@ -42,7 +42,7 @@ const PhoneInput = ({ className, ...props }: React.ComponentProps<"input">) => {
   return (
     <Input
       className={cn(
-        "-ms-px rounded-s-none shadow-none focus-visible:z-10 w-full bg-transparent text-sm p-6 rounded-2xl focus:outline-none border-none",
+        "-ms-px rounded-2xl shadow-none focus-visible:z-10 w-full bg-transparent text-sm p-6  focus:outline-none border-none",
         className
       )}
       data-slot="phone-input"
@@ -71,7 +71,7 @@ const CountrySelect = ({
   };
 
   return (
-    <div className="relative inline-flex items-center self-stretch rounded-s-md py-2 ps-3 pe-2 text-muted-foreground outline-none transition-[color,box-shadow] hover:bg-accent hover:text-foreground has-disabled:pointer-events-none has-disabled:opacity-50 bg-transparent text-sm p-6 rounded-2xl focus:outline-none border-none">
+    <div className="relative inline-flex items-center self-stretch py-2 ps-3 pe-2 text-muted-foreground outline-none transition-[color,box-shadow] hover:bg-accent hover:text-foreground has-disabled:pointer-events-none has-disabled:opacity-50 bg-transparent text-sm p-6 rounded-2xl focus:outline-none border-none">
       <div aria-hidden="true" className="inline-flex items-center gap-1">
         <FlagComponent aria-hidden="true" country={value} countryName={value} />
         <span className="text-muted-foreground/80">

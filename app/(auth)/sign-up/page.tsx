@@ -1,6 +1,12 @@
 "use client";
 
 import { SignUpForm, Testimonial } from "@/src/components/auth/sign-up-form";
+import { Button } from "@/src/components/ui/button";
+import { signUp } from "@/src/lib/auth-client";
+import { CircleX, XIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
 
 const sampleTestimonials: Testimonial[] = [
   {
@@ -24,7 +30,11 @@ const sampleTestimonials: Testimonial[] = [
 ];
 
 export default function SignUpPage() {
-  const handleSignUp = (data: {
+  const [loading, setLoading] = useState(false);
+
+  const router = useRouter();
+
+  async function handleSignUp(data: {
     name: string;
     email: string;
     phoneNumber: string;
@@ -33,9 +43,66 @@ export default function SignUpPage() {
     artistType: string;
     password: string;
     confirmPassword: string;
-  }) => {
-    console.log("Sign Up submitted:", data);
-  };
+  }) {
+    setLoading(true);
+
+    await signUp.email(
+      {
+        name: data.name,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
+        country: data.country,
+        city: data.city,
+        artistType: data.artistType,
+        password: data.password,
+      },
+      {
+        onSuccess: () => {
+          router.push("/verify-email");
+          router.refresh();
+        },
+        onError: (error) => {
+          console.error("Sign Up error:", error);
+
+          // Message d'erreur général pour toutes les autres erreurs
+          toast.custom((t) => (
+            <div className="w-full rounded-md border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 px-4 py-3 text-foreground shadow-lg sm:w-var(--width)">
+              <div className="flex gap-2">
+                <div className="flex grow gap-3">
+                  <CircleX
+                    aria-hidden="true"
+                    className="mt-0.5 shrink-0 text-red-500"
+                    size={16}
+                  />
+                  <div className="flex grow flex-col gap-1">
+                    <p className="text-sm font-medium">Erreur de connexion</p>
+                    <p className="text-sm text-muted-foreground">
+                      Une erreur s'est produite lors de la connexion. Veuillez
+                      réessayer ultérieurement.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  aria-label="Close banner"
+                  className="group -my-1.5 -me-2 size-8 shrink-0 p-0 hover:bg-transparent"
+                  onClick={() => toast.dismiss(t)}
+                  variant="ghost"
+                >
+                  <XIcon
+                    aria-hidden="true"
+                    className="opacity-60 transition-opacity group-hover:opacity-100"
+                    size={16}
+                  />
+                </Button>
+              </div>
+            </div>
+          ));
+
+          setLoading(false);
+        },
+      }
+    );
+  }
 
   return (
     <div className="bg-background text-foreground">
@@ -45,6 +112,7 @@ export default function SignUpPage() {
         description="Inscrivez-vous pour découvrir nos fonctionnalités exclusives et vous connecter à d'autres artistes."
         testimonials={sampleTestimonials}
         onSignUp={handleSignUp}
+        loading={loading}
       />
     </div>
   );
